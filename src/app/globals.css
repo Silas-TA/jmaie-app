@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Colour tokens. Dark is the default; light follows the system or the toggle. */
+:root {
+  --bg: 11 11 13;
+  --panel: 20 20 24;
+  --raised: 29 29 35;
+  --line: 44 44 52;
+  --ink: 236 236 240;
+  --muted: 150 150 162;
+  --accent: 129 140 248;
+  --good: 52 211 153;
+  --bad: 248 113 113;
+  --warn: 251 191 36;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: 246 246 248;
+    --panel: 255 255 255;
+    --raised: 240 240 244;
+    --line: 222 222 230;
+    --ink: 20 20 26;
+    --muted: 100 100 115;
+    --accent: 79 70 229;
+    --good: 5 150 105;
+    --bad: 220 38 38;
+    --warn: 202 138 4;
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"] {
+  --bg: 246 246 248;
+  --panel: 255 255 255;
+  --raised: 240 240 244;
+  --line: 222 222 230;
+  --ink: 20 20 26;
+  --muted: 100 100 115;
+  --accent: 79 70 229;
+  --good: 5 150 105;
+  --bad: 220 38 38;
+  --warn: 202 138 4;
+  color-scheme: light;
+}
+
+html,
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--ink));
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .card {
+    @apply min-w-0 rounded-2xl border border-line bg-panel;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-raised px-3 py-2.5 text-[15px] text-ink outline-none transition placeholder:text-muted focus:border-accent;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:brightness-110;
+  }
+  .btn-ghost {
+    @apply btn border border-line bg-raised text-ink hover:border-accent;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted;
+  }
+  .chip {
+    @apply rounded-full border border-line px-3 py-1.5 text-sm transition;
+  }
+}
