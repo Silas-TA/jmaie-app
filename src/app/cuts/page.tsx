@@ -1,6 +1,7 @@
 import { PageHeader, MonthNav, Tabs, MONEY_TABS, Card, Stat } from "@/components/ui";
 import { BookingForm, BookingList } from "@/components/Bookings";
-import { getBookings, getBudget, getClientNames } from "@/lib/finance";
+import { CutExpenseForm, CutExpenseList } from "@/components/CutExpenses";
+import { getBookings, getBudget, getClientNames, getTransactions } from "@/lib/finance";
 import { eur, parseYM, todayISO } from "@/lib/dates";
 import { PLAN_INCOME } from "@/lib/plan/budget";
 
@@ -8,12 +9,17 @@ export const dynamic = "force-dynamic";
 
 export default async function CutsPage({ searchParams }: { searchParams: { year?: string; month?: string } }) {
   const { year, month } = parseYM(searchParams);
-  const [bookings, clients, budget] = await Promise.all([getBookings(year, month), getClientNames(), getBudget(year, month)]);
+  const [bookings, clients, budget, txs] = await Promise.all([
+    getBookings(year, month), getClientNames(), getBudget(year, month), getTransactions(year, month),
+  ]);
   const paid = bookings.filter((b) => b.paid).reduce((a, b) => a + b.amount, 0);
   const unpaid = bookings.filter((b) => !b.paid).reduce((a, b) => a + b.amount, 0);
   const haircutIncome = budget.filter((r) => r.type === "income_haircut").reduce((a, r) => a + r.actual, 0);
-  const expenses = budget.filter((r) => r.group === "business").reduce((a, r) => a + r.actual, 0);
+  const businessIds = new Set(budget.filter((r) => r.group === "business").map((r) => r.id));
+  const expenseList = txs.filter((t) => t.direction === "expense" && t.categoryId && businessIds.has(t.categoryId));
+  const expenses = expenseList.reduce((a, t) => a + t.amount, 0);
   const profit = haircutIncome - expenses;
+  const today = todayISO();
 
   return (
     <>
@@ -22,14 +28,22 @@ export default async function CutsPage({ searchParams }: { searchParams: { year?
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Haircut income" value={eur(haircutIncome)} tone="good" sub={`${bookings.filter((b) => b.paid).length} paid cuts logged · ${eur(paid)}`} />
         <Stat label="Unpaid" value={eur(unpaid)} />
-        <Stat label="Supplies" value={eur(expenses)} tone={expenses ? "bad" : undefined} />
+        <Stat label="Expenses" value={eur(expenses)} tone={expenses ? "bad" : undefined} sub={`${expenseList.length} this month`} />
         <Stat label="Profit" value={eur(profit)} tone="accent" sub={profit >= PLAN_INCOME.haircuts ? "On target (€500)" : `€${Math.round(PLAN_INCOME.haircuts - profit)} below the €500 plan`} />
       </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,380px)_1fr] lg:items-start">
-        <BookingForm clients={clients} today={todayISO()} />
-        <Card title="Haircuts this month" pad={false}>
-          <BookingList bookings={bookings} />
-        </Card>
+        <div className="min-w-0 space-y-5">
+          <BookingForm clients={clients} today={today} />
+          <CutExpenseForm today={today} />
+        </div>
+        <div className="min-w-0 space-y-5">
+          <Card title="Haircuts this month" pad={false}>
+            <BookingList bookings={bookings} />
+          </Card>
+          <Card title="iCut expenses this month" right={<span className="num text-xs text-muted">{eur(expenses)}</span>} pad={false}>
+            <CutExpenseList expenses={expenseList} />
+          </Card>
+        </div>
       </div>
     </>
   );

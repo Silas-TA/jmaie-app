@@ -184,6 +184,24 @@ export async function deleteBooking(id: string) {
   refreshAll();
 }
 
+/** Logs an iCut business expense (supplies, tools…) under the business expense category. */
+export async function addBusinessExpense(input: { amount: number | string; date: string; description: string }) {
+  let cat = await one<{ id: string }>(
+    `SELECT id FROM categories WHERE name ILIKE '%haircut business%' AND type <> 'income_haircut' ORDER BY is_archived, name LIMIT 1`
+  );
+  if (!cat) {
+    const id = newId();
+    await q(`INSERT INTO categories (id, name, type, color) VALUES ($1, 'Haircut Business Expenses', 'variable', '#C084FC')`, [id]);
+    cat = { id };
+  }
+  await q(
+    `INSERT INTO transactions (id, category_id, direction, amount, date, description, source, is_business_expense)
+     VALUES ($1, $2, 'expense', $3, $4, $5, 'manual', true)`,
+    [newId(), cat.id, money(input.amount), date(input.date), String(input.description || "").trim().slice(0, 200) || "iCut supplies"]
+  );
+  refreshAll();
+}
+
 // ─── Goals ───────────────────────────────────────────────────
 
 export async function createStarterGoals() {
