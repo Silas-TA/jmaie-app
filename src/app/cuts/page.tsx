@@ -1,6 +1,5 @@
-import { PageHeader, MonthNav, Tabs, MONEY_TABS, Card, Stat } from "@/components/ui";
-import { BookingForm, BookingList } from "@/components/Bookings";
-import { CutExpenseForm, CutExpenseList } from "@/components/CutExpenses";
+import { PageHeader, MonthNav, Tabs, MONEY_TABS, Stat } from "@/components/ui";
+import { CutEntry, CutActivity } from "@/components/Bookings";
 import { getBookings, getBudget, getClientNames, getTransactions } from "@/lib/finance";
 import { eur, parseYM, todayISO } from "@/lib/dates";
 import { PLAN_INCOME } from "@/lib/plan/budget";
@@ -31,18 +30,12 @@ export default async function CutsPage({ searchParams }: { searchParams: { year?
         <Stat label="Expenses" value={eur(expenses)} tone={expenses ? "bad" : undefined} sub={`${expenseList.length} this month`} />
         <Stat label="Profit" value={eur(profit)} tone="accent" sub={profit >= PLAN_INCOME.haircuts ? "On target (€500)" : `€${Math.round(PLAN_INCOME.haircuts - profit)} below the €500 plan`} />
       </div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,380px)_1fr] lg:items-start">
-        <div className="min-w-0 space-y-5">
-          <BookingForm clients={clients} today={today} />
-          <CutExpenseForm today={today} />
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,400px)_1fr] lg:items-start">
+        <div className="min-w-0 lg:sticky lg:top-8">
+          <CutEntry clients={clients} today={today} />
         </div>
-        <div className="min-w-0 space-y-5">
-          <Card title="Haircuts this month" pad={false}>
-            <BookingList bookings={bookings} />
-          </Card>
-          <Card title="iCut expenses this month" right={<span className="num text-xs text-muted">{eur(expenses)}</span>} pad={false}>
-            <CutExpenseList expenses={expenseList} />
-          </Card>
+        <div className="min-w-0">
+          <CutActivity bookings={bookings} expenses={expenseList} />
         </div>
       </div>
     </>

@@ -1,19 +1,33 @@
+import Link from "next/link";
+import clsx from "clsx";
 import { PageHeader, MonthNav, Tabs, MONEY_TABS, Stat } from "@/components/ui";
 import QuickAdd from "@/components/QuickAdd";
 import TxList from "@/components/TxList";
-import { getCategories, getFrequentCategoryIds, getMonthSummary, getTransactions } from "@/lib/finance";
-import { eur, parseYM, todayISO } from "@/lib/dates";
+import CategoryChecklist from "@/components/CategoryChecklist";
+import { getBudget, getCategories, getFrequentCategoryIds, getMonthSummary, getTransactions } from "@/lib/finance";
+import { addDays, eur, monthRange, parseYM, todayISO } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
-export default async function MoneyPage({ searchParams }: { searchParams: { year?: string; month?: string } }) {
+export default async function MoneyPage({ searchParams }: { searchParams: { year?: string; month?: string; view?: string } }) {
   const { year, month } = parseYM(searchParams);
-  const [cats, frequent, txs, s] = await Promise.all([
+  const view = searchParams.view === "list" ? "list" : "categories";
+  const [cats, frequent, txs, s, budget] = await Promise.all([
     getCategories(),
     getFrequentCategoryIds(),
     getTransactions(year, month),
     getMonthSummary(year, month),
+    getBudget(year, month),
   ]);
+
+  // Date used when filling in the checklist: today if viewing this month,
+  // otherwise the last day of a past month / first day of a future one.
+  const today = todayISO();
+  const [start, end] = monthRange(year, month);
+  const entryDate = today >= start && today < end ? today : today >= end ? addDays(end, -1) : start;
+
+  const viewLink = (v: string) => `/money?year=${year}&month=${month}${v === "list" ? "&view=list" : ""}`;
+
   return (
     <>
       <PageHeader eyebrow="Money" title="Transactions" right={<MonthNav base="/money" year={year} month={month} />} />
@@ -25,10 +39,23 @@ export default async function MoneyPage({ searchParams }: { searchParams: { year
         <Stat label="Left over" value={eur(s.left)} tone={s.left < 0 ? "bad" : undefined} />
       </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_1fr] lg:items-start">
-        <div className="lg:sticky lg:top-8">
-          <QuickAdd categories={cats} frequent={frequent} today={todayISO()} />
+        <div className="min-w-0 lg:sticky lg:top-8">
+          <QuickAdd categories={cats} frequent={frequent} today={entryDate} />
         </div>
-        <TxList txs={txs} categories={cats} />
+        <div className="min-w-0">
+          <div className="mb-3 flex w-fit rounded-xl border border-line bg-panel p-1 text-sm">
+            {[["categories", "By category"], ["list", `All transactions (${txs.length})`]].map(([k, label]) => (
+              <Link key={k} href={viewLink(k)} className={clsx("rounded-lg px-3 py-1.5", view === k ? "bg-accent/15 font-medium text-accent" : "text-muted hover:text-ink")}>
+                {label}
+              </Link>
+            ))}
+          </div>
+          {view === "categories" ? (
+            <CategoryChecklist rows={budget.filter((r) => !r.isArchived)} date={entryDate} />
+          ) : (
+            <TxList txs={txs} categories={cats} />
+          )}
+        </div>
       </div>
     </>
   );

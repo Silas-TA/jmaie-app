@@ -70,5 +70,5 @@ export function prettyDate(iso: string): string {
 }
 
 export const eur = (n: number, digits = 2) =>
-  "€" +
-  n.toLocaleString("en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  (n < 0 ? "−€" : "€") +
+  Math.abs(n).toLocaleString("en-GB", { minimumFractionDigits: digits, maximumFractionDigits: digits });
