@@ -7,7 +7,8 @@ const nextConfig = {
       { source: "/haircuts", destination: "/cuts", permanent: false },
       { source: "/transactions", destination: "/money", permanent: false },
       { source: "/budget", destination: "/money/budget", permanent: false },
-      { source: "/goals", destination: "/money/goals", permanent: false },
+      { source: "/goals", destination: "/money/budget#goals", permanent: false },
+      { source: "/money/goals", destination: "/money/budget#goals", permanent: false },
       { source: "/insights", destination: "/", permanent: false },
       { source: "/import-export", destination: "/settings", permanent: false },
     ];

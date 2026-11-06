@@ -1,6 +1,13 @@
 import { q, one, getSetting } from "./db";
 import { isoDate, monthRange } from "./dates";
-import { groupOf, isHaircutExpense, type Group } from "./plan/budget";
+import { groupOf, isHaircutExpense, withLabels, type Group, type Section } from "./plan/budget";
+
+/** The six sections, with your own names if you renamed any. */
+export async function getSections(): Promise<Section[]> {
+  let labels: Record<string, string> = {};
+  try { labels = JSON.parse((await getSetting("section_labels")) || "{}"); } catch {}
+  return withLabels(labels);
+}
 
 /** Whether haircut income (and iCut costs) count in the main totals. On by default. */
 export async function getIncludeHaircut(): Promise<boolean> {

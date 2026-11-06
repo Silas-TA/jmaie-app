@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { Bot, ChevronRight, LineChart, PieChart, Scissors, Settings, Target, BookOpen, LogOut } from "lucide-react";
+import { Bot, ChevronRight, LineChart, PieChart, Scissors, Settings, BookOpen, LogOut } from "lucide-react";
 import { PageHeader } from "@/components/ui";
 
 const LINKS = [
-  { href: "/money/budget", label: "Budget", icon: PieChart },
-  { href: "/money/goals", label: "Savings & investing", icon: Target },
+  { href: "/money/budget", label: "Budget & savings", icon: PieChart },
   { href: "/cuts", label: "iCut bookings", icon: Scissors },
   { href: "/health/meals", label: "Meal plan & recipes", icon: BookOpen },
   { href: "/health/progress", label: "Progress", icon: LineChart },

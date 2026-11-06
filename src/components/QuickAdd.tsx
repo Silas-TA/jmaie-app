@@ -4,13 +4,15 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import clsx from "clsx";
 import { Check, Plus } from "lucide-react";
 import { addTransaction } from "@/app/actions";
+import type { Section } from "@/lib/plan/budget";
 
 type Cat = { id: string; name: string; type: string; color: string };
 
-export default function QuickAdd({ categories, frequent, today }: { categories: Cat[]; frequent: string[]; today: string }) {
+export default function QuickAdd({ categories, frequent, today, sections }: { categories: Cat[]; frequent: string[]; today: string; sections: Section[] }) {
   const [direction, setDirection] = useState<"expense" | "income">("expense");
   const [amount, setAmount] = useState("");
   const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [sectionType, setSectionType] = useState<string | null>(null);
   const [date, setDate] = useState(today);
   const [desc, setDesc] = useState("");
   const [error, setError] = useState("");
@@ -24,16 +26,29 @@ export default function QuickAdd({ categories, frequent, today }: { categories: 
     return d.toISOString().slice(0, 10);
   }, [today]);
 
-  const list = categories.filter((c) => (direction === "income" ? c.type.startsWith("income") : !c.type.startsWith("income")));
-  const chips = [
-    ...frequent.map((id) => list.find((c) => c.id === id)).filter(Boolean),
-    ...list.filter((c) => !frequent.includes(c.id)),
-  ].slice(0, direction === "income" ? 6 : 9) as Cat[];
-  const rest = list.filter((c) => !chips.some((x) => x.id === c.id));
+  // Sections for this direction; income has a single section so its items show straight away.
+  const dirSections = sections.filter((x) => x.income === (direction === "income"));
+  const activeSection = dirSections.length === 1 ? dirSections[0] : dirSections.find((x) => x.type === sectionType) ?? null;
+  const rank = (id: string) => (frequent.includes(id) ? frequent.indexOf(id) : 99);
+  const items = activeSection
+    ? categories.filter((c) => activeSection.types.includes(c.type)).sort((a, b) => rank(a.id) - rank(b.id) || a.name.localeCompare(b.name))
+    : [];
+
+  function pickSection(type: string) {
+    if (sectionType === type) { setSectionType(null); setCategoryId(null); return; }
+    setSectionType(type);
+    const sec = sections.find((x) => x.type === type)!;
+    const inSec = categories.filter((c) => sec.types.includes(c.type));
+    setCategoryId(inSec.length === 1 ? inSec[0].id : null);
+  }
 
   function submit(e?: React.FormEvent) {
     e?.preventDefault();
     setError("");
+    if (!categoryId) {
+      setError(activeSection ? (items.length ? `Pick which one in ${activeSection.label}` : `Add a row to ${activeSection.label} first`) : "Pick a category");
+      return;
+    }
     if (!(Number(amount.replace(",", ".")) > 0)) {
       setError("Enter an amount");
       amountRef.current?.focus();
@@ -45,6 +60,7 @@ export default function QuickAdd({ categories, frequent, today }: { categories: 
         setAmount("");
         setDesc("");
         setCategoryId(null);
+        setSectionType(null);
         setSaved(true);
         setTimeout(() => setSaved(false), 1600);
         amountRef.current?.focus();
@@ -63,7 +79,7 @@ export default function QuickAdd({ categories, frequent, today }: { categories: 
             <button
               type="button"
               key={d}
-              onClick={() => { setDirection(d); setCategoryId(null); }}
+              onClick={() => { setDirection(d); setCategoryId(null); setSectionType(null); }}
               className={clsx("rounded-md px-3 py-1 capitalize transition", direction === d ? (d === "expense" ? "bg-bad/15 text-bad" : "bg-good/15 text-good") : "text-muted")}
             >
               {d}
@@ -91,33 +107,46 @@ export default function QuickAdd({ categories, frequent, today }: { categories: 
         </div>
       </div>
 
-      <p className="label mt-4">Category</p>
-      <div className="flex flex-wrap gap-2">
-        {chips.map((c) => (
-          <button
-            type="button"
-            key={c.id}
-            onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}
-            className={clsx("chip flex items-center gap-1.5", categoryId === c.id ? "border-accent bg-accent/15 text-ink" : "text-muted hover:text-ink")}
-          >
-            <span className="h-2 w-2 rounded-full" style={{ background: c.color }} />
-            {c.name}
-          </button>
-        ))}
-        {rest.length > 0 && (
-          <select
-            aria-label="More categories"
-            className="chip bg-transparent text-muted"
-            value={rest.some((c) => c.id === categoryId) ? categoryId! : ""}
-            onChange={(e) => setCategoryId(e.target.value || null)}
-          >
-            <option value="">More…</option>
-            {rest.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+      {dirSections.length > 1 && (
+        <>
+          <p className="label mt-4">Category</p>
+          <div className="flex flex-wrap gap-2">
+            {dirSections.map((x) => (
+              <button
+                type="button"
+                key={x.type}
+                onClick={() => pickSection(x.type)}
+                className={clsx("chip flex items-center gap-1.5", activeSection?.type === x.type ? "border-accent bg-accent/15 text-ink" : "text-muted hover:text-ink")}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ background: x.color }} />
+                {x.label}
+              </button>
             ))}
-          </select>
-        )}
-      </div>
+          </div>
+        </>
+      )}
+
+      {activeSection && (
+        <>
+          <p className="label mt-4">{dirSections.length > 1 ? `Which one? (${activeSection.label})` : activeSection.label}</p>
+          {items.length === 0 ? (
+            <p className="text-sm text-muted">Nothing in {activeSection.label} yet. Add a row to it on the Budget vs actual list.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {items.map((c) => (
+                <button
+                  type="button"
+                  key={c.id}
+                  onClick={() => setCategoryId(categoryId === c.id ? null : c.id)}
+                  className={clsx("chip !py-1 text-sm", categoryId === c.id ? "border-accent bg-accent/15 text-ink" : "text-muted hover:text-ink")}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button type="button" onClick={() => setDate(today)} className={clsx("chip", date === today ? "border-accent text-ink" : "text-muted")}>Today</button>

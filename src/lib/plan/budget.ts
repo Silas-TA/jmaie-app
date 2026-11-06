@@ -35,6 +35,13 @@ export const SECTIONS = [
   { type: "variable", types: ["variable"], label: "Miscellaneous", color: "#FB923C", income: false },
 ] as const;
 
+export type Section = { type: string; types: readonly string[]; label: string; color: string; income: boolean };
+
+/** Sections with any names you've changed applied. */
+export function withLabels(labels: Record<string, string>): Section[] {
+  return SECTIONS.map((s) => ({ ...s, label: labels[s.type]?.trim() || s.label }));
+}
+
 export const EXPENSE_SECTIONS = SECTIONS.filter((s) => !s.income);
 export const sectionOf = (type: string) => SECTIONS.find((s) => (s.types as readonly string[]).includes(type));
 

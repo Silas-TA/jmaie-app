@@ -93,8 +93,7 @@ export function Empty({ children }: { children: React.ReactNode }) {
 
 export const MONEY_TABS = [
   { href: "/money", label: "Transactions" },
-  { href: "/money/budget", label: "Budget" },
-  { href: "/money/goals", label: "Savings & investing" },
+  { href: "/money/budget", label: "Budget & savings" },
   { href: "/cuts", label: "iCut" },
 ];
 

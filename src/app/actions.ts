@@ -1,8 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { q, one, newId, setSetting } from "@/lib/db";
-import { PLAN_LINES, PLAN_INCOME } from "@/lib/plan/budget";
+import { q, one, newId, setSetting, getSetting } from "@/lib/db";
+import { PLAN_LINES, PLAN_INCOME, SECTIONS } from "@/lib/plan/budget";
 import { recipeByKey, MAIN_ROTATION } from "@/lib/plan/nutrition";
 import { EMERGENCY_FUND_TARGET } from "@/lib/plan/budget";
 
@@ -139,6 +139,38 @@ export async function setCategoryActual(categoryId: string, year: number, month:
 /** Turns haircut income (and iCut costs) on or off in the main totals. */
 export async function setIncludeHaircut(on: boolean) {
   await setSetting("include_haircut", on ? "true" : "false");
+  refreshAll();
+}
+
+/** Renames one of the six sections (empty name = back to the default). */
+export async function renameSection(sectionType: string, label: string) {
+  if (!SECTIONS.some((s) => s.type === sectionType)) throw new Error("Unknown section");
+  let labels: Record<string, string> = {};
+  try { labels = JSON.parse((await getSetting("section_labels")) || "{}"); } catch {}
+  const clean = label.trim().slice(0, 40);
+  if (clean) labels[sectionType] = clean;
+  else delete labels[sectionType];
+  await setSetting("section_labels", JSON.stringify(labels));
+  refreshAll();
+}
+
+/**
+ * Moves a row to another section. Moving between income and spending also flips
+ * its past entries so totals stay right.
+ */
+export async function moveCategory(id: string, sectionType: string) {
+  const target = SECTIONS.find((s) => s.type === sectionType);
+  if (!target) throw new Error("Unknown section");
+  const cat = await one<{ type: string }>(`SELECT type::text AS type FROM categories WHERE id = $1`, [id]);
+  if (!cat) throw new Error("Row not found");
+  if (cat.type === "income_haircut") throw new Error("Haircut Business is linked to the iCut page and stays in Income");
+  if ((target.types as readonly string[]).includes(cat.type)) return;
+  const newType = target.type;
+  await q(`UPDATE categories SET type = $2::"CategoryType" WHERE id = $1`, [id, newType]);
+  const wasIncome = cat.type.startsWith("income");
+  if (wasIncome !== target.income) {
+    await q(`UPDATE transactions SET direction = $2::"Direction" WHERE category_id = $1`, [id, target.income ? "income" : "expense"]);
+  }
   refreshAll();
 }
 

@@ -4,7 +4,7 @@ import { PageHeader, MonthNav, Tabs, MONEY_TABS, Stat } from "@/components/ui";
 import QuickAdd from "@/components/QuickAdd";
 import TxList from "@/components/TxList";
 import BudgetActual from "@/components/BudgetActual";
-import { getBudget, getCategories, getFrequentCategoryIds, getMonthSummary, getTransactions } from "@/lib/finance";
+import { getBudget, getCategories, getFrequentCategoryIds, getMonthSummary, getSections, getTransactions } from "@/lib/finance";
 import { addDays, eur, monthRange, parseYM, todayISO } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
@@ -12,12 +12,13 @@ export const dynamic = "force-dynamic";
 export default async function MoneyPage({ searchParams }: { searchParams: { year?: string; month?: string; view?: string } }) {
   const { year, month } = parseYM(searchParams);
   const view = searchParams.view === "list" ? "list" : "categories";
-  const [cats, frequent, txs, s, budget] = await Promise.all([
+  const [cats, frequent, txs, s, budget, sections] = await Promise.all([
     getCategories(),
     getFrequentCategoryIds(),
     getTransactions(year, month),
     getMonthSummary(year, month),
     getBudget(year, month),
+    getSections(),
   ]);
 
   // Date used when filling in the checklist: today if viewing this month,
@@ -40,7 +41,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: { year
       </div>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,420px)_1fr] lg:items-start">
         <div className="min-w-0 lg:sticky lg:top-8">
-          <QuickAdd categories={cats} frequent={frequent} today={entryDate} />
+          <QuickAdd categories={cats} frequent={frequent} today={entryDate} sections={sections} />
         </div>
         <div className="min-w-0">
           <div className="mb-3 flex w-fit rounded-xl border border-line bg-panel p-1 text-sm">
@@ -51,7 +52,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: { year
             ))}
           </div>
           {view === "categories" ? (
-            <BudgetActual rows={budget.filter((r) => !r.isArchived)} year={year} month={month} includeHaircut={s.includeHaircut} />
+            <BudgetActual rows={budget.filter((r) => !r.isArchived)} year={year} month={month} includeHaircut={s.includeHaircut} sections={sections} />
           ) : (
             <TxList txs={txs} categories={cats} />
           )}

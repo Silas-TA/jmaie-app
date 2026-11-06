@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Wallet, Scissors, Salad, Dumbbell, Target, PieChart, MoreHorizontal,
+  LayoutDashboard, Wallet, Scissors, Salad, Dumbbell, PieChart, MoreHorizontal,
   Bot, Settings, LogOut, LineChart, BookOpen,
 } from "lucide-react";
 import clsx from "clsx";
@@ -17,8 +17,7 @@ const SECTIONS = [
     title: "Money",
     items: [
       { href: "/money", label: "Transactions", icon: Wallet },
-      { href: "/money/budget", label: "Budget", icon: PieChart },
-      { href: "/money/goals", label: "Savings & investing", icon: Target },
+      { href: "/money/budget", label: "Budget & savings", icon: PieChart },
       { href: "/cuts", label: "iCut bookings", icon: Scissors },
     ],
   },

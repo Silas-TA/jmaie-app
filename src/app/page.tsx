@@ -4,10 +4,10 @@ import { PageHeader, Card, Stat, Bar, MonthNav } from "@/components/ui";
 import QuickAdd from "@/components/QuickAdd";
 import HaircutToggle from "@/components/HaircutToggle";
 import { MoneyTrend } from "@/components/Charts";
-import { getCategories, getFrequentCategoryIds, getGoals, getMonthSummary, getTrend } from "@/lib/finance";
+import { getCategories, getFrequentCategoryIds, getGoals, getMonthSummary, getSections, getTrend } from "@/lib/finance";
 import { getMeals, getSets, getWeights, rolling } from "@/lib/health";
 import { eur, monthLabel, parseYM, todayISO, weekdayIndex, currentYM } from "@/lib/dates";
-import { EXPENSE_SECTIONS, PLAN_TOTAL_INCOME } from "@/lib/plan/budget";
+import { PLAN_TOTAL_INCOME } from "@/lib/plan/budget";
 import { TARGETS } from "@/lib/plan/nutrition";
 import { dayForWeekday } from "@/lib/plan/training";
 
@@ -18,7 +18,7 @@ export default async function Overview({ searchParams }: { searchParams: { year?
   const { year, month } = parseYM(searchParams);
   const today = todayISO();
   const isCurrent = year === currentYM().year && month === currentYM().month;
-  const [s, trend, cats, frequent, goals, meals, sets, weights] = await Promise.all([
+  const [s, trend, cats, frequent, goals, meals, sets, weights, sections] = await Promise.all([
     getMonthSummary(year, month),
     getTrend(year, month, 6),
     getCategories(),
@@ -27,7 +27,9 @@ export default async function Overview({ searchParams }: { searchParams: { year?
     getMeals(today),
     getSets(today),
     getWeights(60),
+    getSections(),
   ]);
+  const EXPENSE_SECTIONS = sections.filter((x) => !x.income);
   const kcal = meals.reduce((a, m) => a + m.kcal, 0);
   const protein = meals.reduce((a, m) => a + m.protein, 0);
   const gymDay = dayForWeekday(weekdayIndex(today));
@@ -87,7 +89,7 @@ export default async function Overview({ searchParams }: { searchParams: { year?
         </div>
 
         <div className="min-w-0 space-y-5">
-          {isCurrent && <QuickAdd categories={cats} frequent={frequent} today={today} />}
+          {isCurrent && <QuickAdd categories={cats} frequent={frequent} today={today} sections={sections} />}
 
           <div className="grid grid-cols-2 gap-3">
             <Link href="/health" className="card p-4 hover:border-accent">
@@ -113,7 +115,7 @@ export default async function Overview({ searchParams }: { searchParams: { year?
               <p className="num mt-1.5 text-xl font-semibold">{w ? `${w.avg}` : "—"}<span className="text-xs font-normal text-muted"> kg</span></p>
               <p className="mt-1 text-xs text-muted">Goal 80 kg</p>
             </Link>
-            <Link href="/money/goals" className="card p-4 hover:border-accent">
+            <Link href="/money/budget#goals" className="card p-4 hover:border-accent">
               <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-muted"><Target size={14} /> Safety net</p>
               {emergency ? (
                 <>

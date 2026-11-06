@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import clsx from "clsx";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { addCategoryRow, deleteCategoryRow, renameCategory, setBudget, setCategoryActual } from "@/app/actions";
-import { SECTIONS, isHaircutExpense } from "@/lib/plan/budget";
+import { ArrowRightLeft, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { addCategoryRow, deleteCategoryRow, moveCategory, renameCategory, renameSection, setBudget, setCategoryActual } from "@/app/actions";
+import { isHaircutExpense, type Section } from "@/lib/plan/budget";
 import HaircutToggle from "./HaircutToggle";
 
 type Row = { id: string; name: string; type: string; color: string; budgeted: number; actual: number; notes: string | null };
@@ -15,15 +15,15 @@ const num = (s: string) => Number(s.replace(",", ".")) || 0;
 const clean = (s: string) => s.replace(/[^0-9.,]/g, "");
 
 /** Budget vs actual, one card per section, like v0.1: type straight into Budget or Actual. */
-export default function BudgetActual({ rows, year, month, includeHaircut }: { rows: Row[]; year: number; month: number; includeHaircut: boolean }) {
+export default function BudgetActual({ rows, year, month, includeHaircut, sections }: { rows: Row[]; year: number; month: number; includeHaircut: boolean; sections: Section[] }) {
   const excluded = (r: Row) => !includeHaircut && (r.type === "income_haircut" || isHaircutExpense(r.type, r.name));
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
         Type into <b className="text-ink">Budget</b> or <b className="text-ink">Actual</b> and press Enter (or click away) to save.
-        Click a name to rename it. Use <b className="text-ink">+ Add row</b> for something new.
+        Click any name (rows or sections) to rename it. Use <b className="text-ink">⋯</b> on a row to move it to another section or delete it.
       </p>
-      {SECTIONS.map((s) => {
+      {sections.map((s) => {
         const order = (t: string) => ["income_salary", "income_haircut", "income_other"].indexOf(t);
         const list = rows
           .filter((r) => (s.types as readonly string[]).includes(r.type))
@@ -35,7 +35,7 @@ export default function BudgetActual({ rows, year, month, includeHaircut }: { ro
           <section key={s.type} className="card overflow-hidden">
             <div className="flex items-center gap-2 border-b border-line px-4 py-3 sm:px-5">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: s.color }} />
-              <h2 className="text-sm font-semibold">{s.label}</h2>
+              <SectionName section={s} />
               <span className="num ml-auto text-xs text-muted">
                 <span className="text-ink">€{fmt(act)}</span> / €{fmt(bud)}
               </span>
@@ -44,7 +44,7 @@ export default function BudgetActual({ rows, year, month, includeHaircut }: { ro
               <span>Name</span><span className="text-right">Budget</span><span className="text-right">Actual</span><span className="text-right">{s.income ? "Diff" : "Left"}</span><span />
             </div>
             <ul className="divide-y divide-line">
-              {list.map((r) => <Line key={r.id} r={r} income={s.income} year={year} month={month} includeHaircut={includeHaircut} excluded={excluded(r)} />)}
+              {list.map((r) => <Line key={r.id} r={r} income={s.income} year={year} month={month} includeHaircut={includeHaircut} excluded={excluded(r)} sections={sections} current={s.type} />)}
             </ul>
             <AddRow type={s.type} year={year} month={month} locked={false} />
           </section>
@@ -76,7 +76,10 @@ function MoneyInput({ value, onSave, label, disabled }: { value: number; onSave:
   );
 }
 
-function Line({ r, income, year, month, includeHaircut, excluded }: { r: Row; income: boolean; year: number; month: number; includeHaircut: boolean; excluded: boolean }) {
+function Line({ r, income, year, month, includeHaircut, excluded, sections, current }: {
+  r: Row; income: boolean; year: number; month: number; includeHaircut: boolean; excluded: boolean; sections: Section[]; current: string;
+}) {
+  const [menu, setMenu] = useState(false);
   const [pending, start] = useTransition();
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(false);
@@ -110,7 +113,7 @@ function Line({ r, income, year, month, includeHaircut, excluded }: { r: Row; in
           {r.notes && !editing && <p className="truncate text-xs text-muted">{r.notes}</p>}
         </div>
         {/* Delete (mobile position) */}
-        <DeleteBtn r={r} year={year} month={month} run={run} className="sm:hidden" />
+        <MoreBtn open={menu} onClick={() => setMenu(!menu)} name={r.name} className="sm:hidden" />
 
         <div className="col-span-2 grid grid-cols-3 gap-2 sm:col-span-3 sm:grid-cols-[7rem_7rem_6rem]">
           <label className="text-[11px] uppercase text-muted sm:contents">
@@ -134,7 +137,7 @@ function Line({ r, income, year, month, includeHaircut, excluded }: { r: Row; in
             </p>
           </div>
         </div>
-        <DeleteBtn r={r} year={year} month={month} run={run} className="hidden sm:flex" />
+        <MoreBtn open={menu} onClick={() => setMenu(!menu)} name={r.name} className="hidden sm:flex" />
       </div>
       {locked && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -145,26 +148,79 @@ function Line({ r, income, year, month, includeHaircut, excluded }: { r: Row; in
         </div>
       )}
       {!locked && excluded && <p className="mt-1 text-xs text-muted">Not counted while haircut income is switched off.</p>}
+      {menu && (
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-raised/50 p-2">
+          {locked ? (
+            <span className="px-1 text-xs text-muted">Haircut Business stays in Income (it&apos;s linked to the iCut page).</span>
+          ) : (
+            <>
+              <span className="flex items-center gap-1 px-1 text-xs text-muted"><ArrowRightLeft size={12} /> Move to</span>
+              {sections.filter((x) => x.type !== current).map((x) => (
+                <button
+                  key={x.type}
+                  className="chip flex items-center gap-1.5 !px-2.5 !py-1 text-xs text-muted hover:border-accent hover:text-ink"
+                  onClick={() => {
+                    const flips = x.income !== income;
+                    if (flips && !confirm(`Move "${r.name}" to ${x.label}?\n\nIts past entries will count as ${x.income ? "income" : "spending"} from now on.`)) return;
+                    run(async () => { await moveCategory(r.id, x.type); setMenu(false); });
+                  }}
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ background: x.color }} />{x.label}
+                </button>
+              ))}
+            </>
+          )}
+          <button
+            className="chip ml-auto flex items-center gap-1.5 !px-2.5 !py-1 text-xs text-bad hover:border-bad"
+            onClick={() =>
+              confirm(`Delete "${r.name}"?\n\nThis removes it and this month's amounts for it. Entries from earlier months stay in your history.`) &&
+              run(() => deleteCategoryRow(r.id, year, month))
+            }
+          >
+            <Trash2 size={12} /> Delete
+          </button>
+        </div>
+      )}
       {err && <p className="mt-1 text-xs text-bad">{err}</p>}
     </li>
   );
 }
 
-function DeleteBtn({ r, year, month, run, className }: {
-  r: Row; year: number; month: number; run: (fn: () => Promise<void>) => void; className?: string;
-}) {
+function MoreBtn({ open, onClick, name, className }: { open: boolean; onClick: () => void; name: string; className?: string }) {
   return (
     <button
-      aria-label={`Delete ${r.name}`}
-      title="Delete row"
-      className={clsx("items-center justify-center justify-self-end rounded-md p-1.5 text-muted hover:text-bad", className)}
-      onClick={() =>
-        confirm(`Delete "${r.name}"?\n\nThis removes it and this month's amounts for it. Entries from earlier months stay in your history.`) &&
-        run(() => deleteCategoryRow(r.id, year, month))
-      }
+      aria-label={`Options for ${name}`}
+      aria-expanded={open}
+      title="Move or delete"
+      onClick={onClick}
+      className={clsx("items-center justify-center justify-self-end rounded-md p-1.5 text-muted hover:bg-raised hover:text-ink", open && "bg-raised text-ink", className)}
     >
-      <Trash2 size={15} />
+      <MoreHorizontal size={16} />
     </button>
+  );
+}
+
+function SectionName({ section }: { section: Section }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(section.label);
+  const [pending, start] = useTransition();
+  useEffect(() => setName(section.label), [section.label]);
+  if (!editing)
+    return (
+      <button className="group flex items-center gap-1.5" onClick={() => setEditing(true)} title="Rename section">
+        <h2 className="text-sm font-semibold">{section.label}</h2>
+        <Pencil size={12} className="text-muted opacity-60 group-hover:opacity-100" />
+      </button>
+    );
+  return (
+    <form
+      className={clsx("flex items-center gap-1", pending && "opacity-60")}
+      onSubmit={(e) => { e.preventDefault(); start(async () => { await renameSection(section.type, name); setEditing(false); }); }}
+    >
+      <input autoFocus aria-label="Section name" className="input !w-48 !py-1 text-sm font-semibold" value={name} onChange={(e) => setName(e.target.value)} />
+      <button aria-label="Save section name" className="rounded p-1.5 text-good"><Check size={15} /></button>
+      <button type="button" aria-label="Cancel" className="rounded p-1.5 text-muted" onClick={() => { setName(section.label); setEditing(false); }}><X size={15} /></button>
+    </form>
   );
 }
 
