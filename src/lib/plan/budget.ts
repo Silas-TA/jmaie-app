@@ -3,8 +3,8 @@
 export type Group = "income" | "needs" | "wants" | "giving" | "business" | "savings";
 
 export const GROUP_META: Record<Exclude<Group, "income">, { label: string; color: string; hint: string }> = {
-  needs: { label: "Needs", color: "#60A5FA", hint: "Rent, bills, food, transport, debt" },
-  wants: { label: "Wants", color: "#F472B6", hint: "Subscriptions, outings, personal care" },
+  needs: { label: "Essentials", color: "#60A5FA", hint: "Rent, bills, food, transport, debt" },
+  wants: { label: "Lifestyle", color: "#F472B6", hint: "Subscriptions, outings, personal care" },
   giving: { label: "Family", color: "#FBBF24", hint: "Money for family" },
   business: { label: "iCut costs", color: "#C084FC", hint: "Barber supplies" },
   savings: { label: "Savings", color: "#34D399", hint: "Emergency fund and investing" },
@@ -21,6 +21,21 @@ export function groupOf(type: string, name: string): Group {
   if (n.includes("food") || n.includes("grocer")) return "needs";
   return "wants";
 }
+
+/** The sections used everywhere in the app (same names and colours as v0.1). */
+export const SECTIONS = [
+  { type: "income_salary", label: "Income", color: "#10B981", income: true },
+  { type: "income_other", label: "Other Income", color: "#14B8A6", income: true },
+  { type: "income_haircut", label: "Haircut Business", color: "#8B5CF6", income: true },
+  { type: "fixed", label: "Fixed Expenses", color: "#64748B", income: false },
+  { type: "subscription", label: "Subscriptions", color: "#D946EF", income: false },
+  { type: "family_giving", label: "Family & Giving", color: "#F59E0B", income: false },
+  { type: "debt", label: "Debt Repayment", color: "#F43F5E", income: false },
+  { type: "variable", label: "Variable Expenses", color: "#FB923C", income: false },
+] as const;
+
+export const EXPENSE_SECTIONS = SECTIONS.filter((s) => !s.income);
+export const sectionOf = (type: string) => SECTIONS.find((s) => s.type === type);
 
 export const PLAN_INCOME = { salary: 1200, haircuts: 500 };
 export const PLAN_TOTAL_INCOME = PLAN_INCOME.salary + PLAN_INCOME.haircuts;
@@ -85,7 +100,7 @@ export const SAVINGS_PHASES = [
 
 export const RULES = [
   { title: "Pay yourself first", body: "Move the savings amount on payday, before spending. Whatever is left is yours to spend." },
-  { title: "50 / 30 / 20 as a check", body: "A common guideline: about 50% needs, 30% wants, 20%+ savings. Your plan saves 28% even with the phone contract; needs drop below 50% when it ends." },
+  { title: "50 / 30 / 20 as a check", body: "A common guideline: about 50% on essential bills, 30% on everything else, 20%+ to savings. Your plan saves 28% even with the phone contract; essential bills drop below 50% when it ends." },
   { title: "Emergency fund before risk", body: "Keep 3–6 months of essential costs in cash before putting serious money into the stock market." },
   { title: "Barber income is variable", body: "The plan uses €500. In good months, put everything above €500 straight into savings; in slow months the fund absorbs the gap." },
 ];

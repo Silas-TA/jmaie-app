@@ -84,6 +84,109 @@ export async function setBudget(categoryId: string, year: number, month: number,
   refreshAll();
 }
 
+const CATEGORY_TYPES = ["income_salary", "income_haircut", "income_other", "fixed", "subscription", "family_giving", "debt", "variable"];
+const amountOrZero = (v: unknown) => {
+  const n = Math.round(Number(String(v ?? "").replace(",", ".")) * 100) / 100;
+  if (!Number.isFinite(n) || n < 0 || n > 1_000_000) throw new Error("Enter a valid amount");
+  return n;
+};
+function monthBounds(year: number, month: number): [string, string, string] {
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const next = month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+  // Entry date for a summary amount: today if it falls in the month, else the 1st.
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Vilnius" }).format(new Date());
+  return [start, next, today >= start && today < next ? today : start];
+}
+
+/**
+ * Sets a category's actual for a month (like v0.1). If the new total is higher,
+ * the difference is added as one entry so earlier entries are kept; if it's
+ * lower, that month's entries are replaced by a single entry for the new total.
+ */
+export async function setCategoryActual(categoryId: string, year: number, month: number, amount: number | string) {
+  const target = amountOrZero(amount);
+  const cat = await one<{ name: string; type: string }>(`SELECT name, type::text AS type FROM categories WHERE id = $1`, [categoryId]);
+  if (!cat) throw new Error("Category not found");
+  if (cat.type === "income_haircut") throw new Error("Haircut income comes from the iCut page");
+  const [start, next, entryDate] = monthBounds(year, month);
+  const cur = await one<{ total: string | null }>(
+    `SELECT SUM(amount) AS total FROM transactions WHERE category_id = $1 AND date >= $2 AND date < $3`,
+    [categoryId, start, next]
+  );
+  const current = Number(cur?.total ?? 0);
+  const diff = Math.round((target - current) * 100) / 100;
+  if (Math.abs(diff) < 0.005) return;
+  const direction = cat.type.startsWith("income") ? "income" : "expense";
+  if (diff > 0) {
+    await q(
+      `INSERT INTO transactions (id, category_id, direction, amount, date, description, source)
+       VALUES ($1, $2, $3::"Direction", $4, $5, $6, 'manual')`,
+      [newId(), categoryId, direction, diff, entryDate, cat.name]
+    );
+  } else {
+    await q(`DELETE FROM transactions WHERE category_id = $1 AND date >= $2 AND date < $3`, [categoryId, start, next]);
+    if (target > 0) {
+      await q(
+        `INSERT INTO transactions (id, category_id, direction, amount, date, description, source)
+         VALUES ($1, $2, $3::"Direction", $4, $5, $6, 'manual')`,
+        [newId(), categoryId, direction, target, entryDate, cat.name]
+      );
+    }
+  }
+  refreshAll();
+}
+
+export async function renameCategory(id: string, name: string) {
+  const clean = name.trim().slice(0, 60);
+  if (!clean) throw new Error("Name can't be empty");
+  await q(`UPDATE categories SET name = $2 WHERE id = $1`, [id, clean]);
+  refreshAll();
+}
+
+/** Adds a new row (category) to a section, with optional budget and actual for this month. */
+export async function addCategoryRow(input: { name: string; type: string; year: number; month: number; budget?: string; actual?: string }) {
+  const name = input.name.trim().slice(0, 60);
+  if (!name) throw new Error("Give the row a name");
+  if (!CATEGORY_TYPES.includes(input.type)) throw new Error("Invalid section");
+  const budget = amountOrZero(input.budget || 0);
+  const actual = amountOrZero(input.actual || 0);
+  const existing = await one<{ id: string; is_archived: boolean }>(
+    `SELECT id, is_archived FROM categories WHERE lower(name) = lower($1) AND type = $2::"CategoryType" LIMIT 1`,
+    [name, input.type]
+  );
+  let id = existing?.id;
+  if (existing) {
+    if (!existing.is_archived) throw new Error(`"${name}" already exists in this section`);
+    await q(`UPDATE categories SET is_archived = false WHERE id = $1`, [id]);
+  } else {
+    id = newId();
+    await q(`INSERT INTO categories (id, name, type, color) VALUES ($1, $2, $3::"CategoryType", $4)`, [id, name, input.type, PALETTE[Math.floor(Math.random() * PALETTE.length)]]);
+  }
+  if (budget > 0) await setBudget(id!, input.year, input.month, budget);
+  if (actual > 0) await setCategoryActual(id!, input.year, input.month, actual);
+  refreshAll();
+}
+
+/**
+ * Deletes a row. A category with no transactions at all is removed completely;
+ * one with past transactions is hidden (archived) so your history stays correct,
+ * and this month's entries and budget for it are removed.
+ */
+export async function deleteCategoryRow(id: string, year: number, month: number) {
+  const [start, next] = monthBounds(year, month);
+  await q(`DELETE FROM transactions WHERE category_id = $1 AND date >= $2 AND date < $3 AND description NOT LIKE '%[hb:%'`, [id, start, next]);
+  await q(`DELETE FROM budgets WHERE category_id = $1 AND (year > $2 OR (year = $2 AND month >= $3))`, [id, year, month]);
+  const left = await one<{ n: string }>(`SELECT COUNT(*) AS n FROM transactions WHERE category_id = $1`, [id]);
+  const goals = await one<{ n: string }>(`SELECT COUNT(*) AS n FROM goals WHERE linked_category_id = $1`, [id]);
+  if (Number(left?.n) === 0 && Number(goals?.n) === 0) {
+    await q(`DELETE FROM budgets WHERE category_id = $1`, [id]);
+    await q(`DELETE FROM categories WHERE id = $1`, [id]);
+  } else {
+    await q(`UPDATE categories SET is_archived = true WHERE id = $1`, [id]);
+  }
+  refreshAll();
+}
+
 /** Copies the suggested plan into a month, creating any missing categories. */
 export async function applySuggestedPlan(year: number, month: number) {
   const cats = await q<{ id: string; name: string; is_archived: boolean }>(`SELECT id, name, is_archived FROM categories`);

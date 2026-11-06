@@ -3,7 +3,7 @@ import clsx from "clsx";
 import { PageHeader, MonthNav, Tabs, MONEY_TABS, Stat } from "@/components/ui";
 import QuickAdd from "@/components/QuickAdd";
 import TxList from "@/components/TxList";
-import CategoryChecklist from "@/components/CategoryChecklist";
+import BudgetActual from "@/components/BudgetActual";
 import { getBudget, getCategories, getFrequentCategoryIds, getMonthSummary, getTransactions } from "@/lib/finance";
 import { addDays, eur, monthRange, parseYM, todayISO } from "@/lib/dates";
 
@@ -44,14 +44,14 @@ export default async function MoneyPage({ searchParams }: { searchParams: { year
         </div>
         <div className="min-w-0">
           <div className="mb-3 flex w-fit rounded-xl border border-line bg-panel p-1 text-sm">
-            {[["categories", "By category"], ["list", `All transactions (${txs.length})`]].map(([k, label]) => (
+            {[["categories", "Budget vs actual"], ["list", `All transactions (${txs.length})`]].map(([k, label]) => (
               <Link key={k} href={viewLink(k)} className={clsx("rounded-lg px-3 py-1.5", view === k ? "bg-accent/15 font-medium text-accent" : "text-muted hover:text-ink")}>
                 {label}
               </Link>
             ))}
           </div>
           {view === "categories" ? (
-            <CategoryChecklist rows={budget.filter((r) => !r.isArchived)} date={entryDate} />
+            <BudgetActual rows={budget.filter((r) => !r.isArchived)} year={year} month={month} />
           ) : (
             <TxList txs={txs} categories={cats} />
           )}

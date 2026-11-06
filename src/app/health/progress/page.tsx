@@ -61,7 +61,7 @@ export default async function ProgressPage() {
           label="Weekly rate"
           value={rate === null ? "—" : `${rate >= 0 ? "+" : ""}${rate.toFixed(2)} kg`}
           tone={rate === null ? undefined : rate < TARGETS.weeklyGainMin ? "bad" : rate > TARGETS.weeklyGainMax ? "bad" : "good"}
-          sub={rate === null ? "Needs 2+ weeks of weigh-ins" : rate < TARGETS.weeklyGainMin ? "Too slow: add ~150–200 kcal/day" : rate > TARGETS.weeklyGainMax ? "Too fast: cut ~150 kcal/day" : "On track"}
+          sub={rate === null ? "Takes 2+ weeks of weigh-ins" : rate < TARGETS.weeklyGainMin ? "Too slow: add ~150–200 kcal/day" : rate > TARGETS.weeklyGainMax ? "Too fast: cut ~150 kcal/day" : "On track"}
         />
         <Stat label="To 80 kg" value={weeksToGoal ? `${Math.round(weeksToGoal)} wks` : "—"} sub={weeksToGoal ? `≈ ${prettyDate(addDays(today, Math.round(weeksToGoal * 7)))} ${new Date(addDays(today, Math.round(weeksToGoal * 7))).getFullYear()}` : "At the current rate"} />
       </div>

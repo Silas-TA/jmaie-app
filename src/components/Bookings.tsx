@@ -114,7 +114,7 @@ export function CutEntry({ clients, today }: { clients: string[]; today: string 
       <p className="mt-3 text-xs text-muted">
         {mode === "cut"
           ? "Paid haircuts are added to your income automatically; unpaid ones when you tick them."
-          : "Expenses come off your iCut profit and count toward the “iCut costs” budget."}
+          : "Expenses come off your iCut profit and count toward “Haircut Business Expenses” in Variable Expenses."}
       </p>
     </form>
   );

@@ -6,13 +6,12 @@ import { MoneyTrend } from "@/components/Charts";
 import { getCategories, getFrequentCategoryIds, getGoals, getMonthSummary, getTrend } from "@/lib/finance";
 import { getMeals, getSets, getWeights, rolling } from "@/lib/health";
 import { eur, monthLabel, parseYM, todayISO, weekdayIndex, currentYM } from "@/lib/dates";
-import { GROUP_META, PLAN_TOTAL_INCOME } from "@/lib/plan/budget";
+import { EXPENSE_SECTIONS, PLAN_TOTAL_INCOME } from "@/lib/plan/budget";
 import { TARGETS } from "@/lib/plan/nutrition";
 import { dayForWeekday } from "@/lib/plan/training";
 
 export const dynamic = "force-dynamic";
 
-const GROUPS = ["needs", "wants", "giving", "business", "savings"] as const;
 
 export default async function Overview({ searchParams }: { searchParams: { year?: string; month?: string } }) {
   const { year, month } = parseYM(searchParams);
@@ -58,23 +57,23 @@ export default async function Overview({ searchParams }: { searchParams: { year?
       <div className="grid gap-5 lg:grid-cols-[1fr_400px]">
         <div className="min-w-0 space-y-5">
           <Card title={`Budget · ${monthLabel(year, month)}`} right={<Link href={`/money/budget?year=${year}&month=${month}`} className="flex items-center gap-1 text-xs text-accent">Open <ArrowRight size={12} /></Link>}>
-            {Object.keys(s.byGroup).length === 0 || GROUPS.every((g) => !s.byGroup[g]?.budgeted) ? (
+            {EXPENSE_SECTIONS.every((x) => !s.byType[x.type]?.budgeted) ? (
               <p className="text-sm text-muted">
                 No budget for this month yet.{" "}
                 <Link className="text-accent underline" href={`/money/budget?year=${year}&month=${month}`}>Set it up with the suggested plan</Link> (one click).
               </p>
             ) : (
               <ul className="space-y-4">
-                {GROUPS.filter((g) => s.byGroup[g]).map((g) => {
-                  const v = s.byGroup[g];
-                  const over = g !== "savings" && v.budgeted > 0 && v.actual > v.budgeted;
+                {EXPENSE_SECTIONS.filter((x) => s.byType[x.type]?.budgeted || s.byType[x.type]?.actual).map((x) => {
+                  const v = s.byType[x.type];
+                  const over = v.budgeted > 0 && v.actual > v.budgeted;
                   return (
-                    <li key={g}>
+                    <li key={x.type}>
                       <div className="mb-1.5 flex items-baseline justify-between text-sm">
-                        <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: GROUP_META[g].color }} />{GROUP_META[g].label}</span>
+                        <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full" style={{ background: x.color }} />{x.label}</span>
                         <span className="num text-muted"><span className={over ? "text-bad" : "text-ink"}>{eur(v.actual, 0)}</span> / {eur(v.budgeted, 0)}</span>
                       </div>
-                      <Bar value={v.actual} max={v.budgeted} color={GROUP_META[g].color} over={over} />
+                      <Bar value={v.actual} max={v.budgeted} color={x.color} over={over} />
                     </li>
                   );
                 })}

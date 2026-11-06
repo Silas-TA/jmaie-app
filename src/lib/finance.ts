@@ -102,6 +102,8 @@ export type MonthSummary = {
   left: number; // income - spent - saved
   savingsRate: number; // (saved + left) / income
   byGroup: Record<string, { budgeted: number; actual: number }>;
+  /** Budget vs actual per category type (the v0.1 sections). */
+  byType: Record<string, { budgeted: number; actual: number }>;
   budgetedSpend: number;
 };
 
@@ -117,7 +119,11 @@ export async function getMonthSummary(year: number, month: number): Promise<Mont
   let salary = 0, haircut = 0, otherIncome = Number(uncategorised?.income ?? 0);
   let spent = Number(uncategorised?.expense ?? 0), saved = 0, budgetedSpend = 0;
   const byGroup: MonthSummary["byGroup"] = {};
+  const byType: MonthSummary["byType"] = {};
   for (const r of rows) {
+    byType[r.type] ??= { budgeted: 0, actual: 0 };
+    byType[r.type].budgeted += r.budgeted;
+    byType[r.type].actual += r.actual;
     if (r.group === "income") {
       if (r.type === "income_salary") salary += r.actual;
       else if (r.type === "income_haircut") haircut += r.actual;
@@ -138,7 +144,7 @@ export async function getMonthSummary(year: number, month: number): Promise<Mont
   return {
     income, salary, haircut, otherIncome, spent, saved, left,
     savingsRate: income > 0 ? (saved + Math.max(0, left)) / income : 0,
-    byGroup, budgetedSpend,
+    byGroup, byType, budgetedSpend,
   };
 }
 
