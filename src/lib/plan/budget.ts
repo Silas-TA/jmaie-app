@@ -13,6 +13,7 @@ export const GROUP_META: Record<Exclude<Group, "income">, { label: string; color
 /** Which group a category belongs to, from its type and name. */
 export function groupOf(type: string, name: string): Group {
   if (type.startsWith("income")) return "income";
+  if (type === "savings") return "savings";
   const n = name.toLowerCase();
   if (n.includes("saving") || n.includes("invest") || n.includes("emergency")) return "savings";
   if (type === "family_giving" || ["mum", "jeremiah"].includes(n)) return "giving";
@@ -33,9 +34,10 @@ export const SECTIONS = [
   { type: "family_giving", types: ["family_giving"], label: "Family & Giving", color: "#F59E0B", income: false },
   { type: "debt", types: ["debt"], label: "Debt Repayment", color: "#F43F5E", income: false },
   { type: "variable", types: ["variable"], label: "Miscellaneous", color: "#FB923C", income: false },
+  { type: "savings", types: ["savings"], label: "Savings", color: "#34D399", income: false, noBudget: true },
 ] as const;
 
-export type Section = { type: string; types: readonly string[]; label: string; color: string; income: boolean };
+export type Section = { type: string; types: readonly string[]; label: string; color: string; income: boolean; noBudget?: boolean };
 
 /** Sections with any names you've changed applied. */
 export function withLabels(labels: Record<string, string>): Section[] {
@@ -54,7 +56,7 @@ export const PLAN_TOTAL_INCOME = PLAN_INCOME.salary + PLAN_INCOME.haircuts;
 
 export type PlanLine = {
   name: string; // matches an existing category name, or is created
-  type: "fixed" | "subscription" | "family_giving" | "debt" | "variable";
+  type: "fixed" | "subscription" | "family_giving" | "debt" | "variable" | "savings";
   amount: number;
   note?: string;
 };
@@ -80,7 +82,7 @@ export const PLAN_LINES: PlanLine[] = [
   // iCut
   { name: "Haircut Business Expenses", type: "variable", amount: 20 },
   // Savings: whatever is left over (€480)
-  { name: "Savings", type: "fixed", amount: 480, note: "Emergency fund first, then investing (see Goals)" },
+  { name: "Savings", type: "savings", amount: 480, note: "Emergency fund first, then investing (see Goals)" },
 ];
 
 export const EMERGENCY_FUND_TARGET = 3000; // ≈ 3 months of essentials once the phone contract ends

@@ -29,7 +29,7 @@ export default async function Overview({ searchParams }: { searchParams: { year?
     getWeights(60),
     getSections(),
   ]);
-  const EXPENSE_SECTIONS = sections.filter((x) => !x.income);
+  const EXPENSE_SECTIONS = sections.filter((x) => !x.income && !x.noBudget);
   const kcal = meals.reduce((a, m) => a + m.kcal, 0);
   const protein = meals.reduce((a, m) => a + m.protein, 0);
   const gymDay = dayForWeekday(weekdayIndex(today));

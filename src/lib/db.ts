@@ -91,6 +91,17 @@ export function ensureSchema(): Promise<void> {
       );
     `
       )
+      // A "savings" category type for the Savings section (added once; additive only).
+      .then(() => pool().query(`ALTER TYPE "CategoryType" ADD VALUE IF NOT EXISTS 'savings'`))
+      // One-time: move existing savings rows (e.g. "Savings") into the new section.
+      .then(() =>
+        pool().query(`
+          WITH done AS (SELECT 1 FROM app_settings WHERE key = 'migrated_savings')
+          UPDATE categories SET type = 'savings'
+           WHERE type = 'fixed' AND name ~* 'saving' AND NOT EXISTS (SELECT 1 FROM done);
+          INSERT INTO app_settings (key, value) VALUES ('migrated_savings', 'true') ON CONFLICT (key) DO NOTHING;
+        `)
+      )
       .then(() => undefined)
       .catch((e) => {
         g.__pfSchema = undefined;

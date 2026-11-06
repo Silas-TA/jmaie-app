@@ -18,20 +18,15 @@ export default async function BudgetPage({ searchParams }: { searchParams: { yea
   const hasStarter = goals.some((g) => /emergency/i.test(g.name)) && goals.some((g) => /invest/i.test(g.name));
   const counts = (r: { type: string; name: string }) => includeHaircut || (r.type !== "income_haircut" && !isHaircutExpense(r.type, r.name));
   const incomeRows = rows.filter((r) => r.type.startsWith("income") && counts(r));
-  const totalBudgeted = rows.filter((r) => !r.type.startsWith("income") && !r.isArchived && counts(r)).reduce((a, r) => a + r.budgeted, 0);
+  const totalBudgeted = rows.filter((r) => !r.type.startsWith("income") && r.type !== "savings" && !r.isArchived && counts(r)).reduce((a, r) => a + r.budgeted, 0);
   const incomeBudget = incomeRows.reduce((a, r) => a + r.budgeted, 0) || PLAN_TOTAL_INCOME;
   const unassigned = incomeBudget - totalBudgeted;
 
-  // Suggested plan split (for the explainer)
-  // Savings is shown on its own so you can see it next to the spending sections.
-  const isSaving = (n: string) => /saving/i.test(n);
-  const planByGroup = [
-    ...sections.filter((x) => !x.income).map((s) => ({
-      key: s.type, label: s.label, color: s.color,
-      amount: PLAN_LINES.filter((l) => l.type === s.type && !isSaving(l.name)).reduce((a, l) => a + l.amount, 0),
-    })),
-    { key: "savings", label: "Savings", color: "#34D399", amount: PLAN_LINES.filter((l) => isSaving(l.name)).reduce((a, l) => a + l.amount, 0) },
-  ].filter((g) => g.amount > 0);
+  // Suggested plan split (for the explainer), one entry per section.
+  const planByGroup = sections
+    .filter((x) => !x.income)
+    .map((x) => ({ key: x.type, label: x.label, color: x.color, amount: PLAN_LINES.filter((l) => l.type === x.type).reduce((a, l) => a + l.amount, 0) }))
+    .filter((g) => g.amount > 0);
 
   const apply = applySuggestedPlan.bind(null, year, month);
   const copy = copyPreviousBudget.bind(null, year, month);
@@ -90,9 +85,9 @@ export default async function BudgetPage({ searchParams }: { searchParams: { yea
         <div className="mr-auto">
           <p className="text-sm font-medium">{monthLabel(year, month)}</p>
           <p className="text-sm text-muted">
-            Budgeted <span className="num text-ink">{eur(totalBudgeted)}</span> of <span className="num text-ink">{eur(incomeBudget)}</span>
+            Spending budget <span className="num text-ink">{eur(totalBudgeted)}</span> of <span className="num text-ink">{eur(incomeBudget)}</span>
             {Math.abs(unassigned) > 0.5 && (
-              <span className={unassigned < 0 ? " text-bad" : " text-warn"}> · {unassigned < 0 ? `${eur(-unassigned)} over-planned` : `${eur(unassigned)} not assigned yet`}</span>
+              <span className={unassigned < 0 ? " text-bad" : " text-good"}> · {unassigned < 0 ? `${eur(-unassigned)} over-planned` : `${eur(unassigned)} left for savings`}</span>
             )}
           </p>
         </div>

@@ -169,7 +169,7 @@ export async function getTrend(year: number, month: number, n = 6) {
   const includeHaircut = await getIncludeHaircut();
   const rows = await q<{ ym: string; direction: string; savings: boolean; total: string }>(
     `SELECT to_char(t.date, 'YYYY-MM') AS ym, t.direction::text AS direction,
-            (COALESCE(c.name,'') ILIKE '%saving%') AS savings, SUM(t.amount) AS total
+            (COALESCE(c.type::text,'') = 'savings' OR COALESCE(c.name,'') ILIKE '%saving%') AS savings, SUM(t.amount) AS total
        FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
       WHERE t.date >= $1 AND t.date < $2
         AND ($3::boolean OR (COALESCE(c.type::text,'') <> 'income_haircut'

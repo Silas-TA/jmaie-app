@@ -62,7 +62,7 @@ const PALETTE = ["#60A5FA", "#F472B6", "#34D399", "#FBBF24", "#A78BFA", "#22D3EE
 export async function addCategory(name: string, type: string) {
   const clean = name.trim().slice(0, 60);
   if (!clean) throw new Error("Name required");
-  const allowed = ["income_salary", "income_haircut", "income_other", "fixed", "subscription", "family_giving", "debt", "variable"];
+  const allowed = ["income_salary", "income_haircut", "income_other", "fixed", "subscription", "family_giving", "debt", "variable", "savings"];
   if (!allowed.includes(type)) throw new Error("Invalid type");
   const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
   await q(`INSERT INTO categories (id, name, type, color) VALUES ($1, $2, $3::"CategoryType", $4)`, [newId(), clean, type, color]);
@@ -84,7 +84,7 @@ export async function setBudget(categoryId: string, year: number, month: number,
   refreshAll();
 }
 
-const CATEGORY_TYPES = ["income_salary", "income_haircut", "income_other", "fixed", "subscription", "family_giving", "debt", "variable"];
+const CATEGORY_TYPES = ["income_salary", "income_haircut", "income_other", "fixed", "subscription", "family_giving", "debt", "variable", "savings"];
 const amountOrZero = (v: unknown) => {
   const n = Math.round(Number(String(v ?? "").replace(",", ".")) * 100) / 100;
   if (!Number.isFinite(n) || n < 0 || n > 1_000_000) throw new Error("Enter a valid amount");
@@ -237,6 +237,12 @@ export async function applySuggestedPlan(year: number, month: number) {
       cats.push(cat);
     } else if (cat.is_archived) {
       await q(`UPDATE categories SET is_archived = false WHERE id = $1`, [cat.id]);
+    }
+    // Savings has no budget (only an actual): it's whatever you put aside.
+    if (line.type === "savings") {
+      await q(`UPDATE categories SET type = 'savings' WHERE id = $1`, [cat.id]);
+      await q(`DELETE FROM budgets WHERE category_id = $1 AND year = $2 AND month = $3`, [cat.id, year, month]);
+      continue;
     }
     await q(
       `INSERT INTO budgets (id, category_id, year, month, budgeted_amount, notes) VALUES ($1, $2, $3, $4, $5, $6)

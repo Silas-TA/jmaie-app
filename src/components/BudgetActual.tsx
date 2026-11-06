@@ -70,7 +70,8 @@ function SectionCard({ s, rows, year, month, includeHaircut, sections }: {
           <h2 className="text-sm font-semibold">{s.label}</h2>
         )}
         <span className="num ml-auto text-xs text-muted">
-          <span className="text-ink">€{fmt(act)}</span> / €{fmt(bud)}
+          <span className="text-ink">€{fmt(act)}</span>{!s.noBudget && <> / €{fmt(bud)}</>}
+          {s.noBudget && " put aside"}
         </span>
         <button
           onClick={() => setEditing(!editing)}
@@ -80,17 +81,20 @@ function SectionCard({ s, rows, year, month, includeHaircut, sections }: {
           {editing ? <><Check size={13} /> Done</> : <><Pencil size={13} /> Edit</>}
         </button>
       </div>
-      <div className={clsx("hidden grid-cols-[1fr_7rem_7rem_6rem] gap-2 px-5 pt-2 text-[11px] uppercase tracking-wide text-muted", list.length > 0 && "sm:grid")}>
-        <span>Name</span><span className="text-right">Budget</span><span className="text-right">Actual</span><span className="text-right">{s.income ? "Diff" : "Left"}</span>
+      <div className={clsx("hidden gap-2 px-5 pt-2 text-[11px] uppercase tracking-wide text-muted", s.noBudget ? "grid-cols-[1fr_7rem]" : "grid-cols-[1fr_7rem_7rem_6rem]", list.length > 0 && "sm:grid")}>
+        <span>Name</span>
+        {!s.noBudget && <span className="text-right">Budget</span>}
+        <span className="text-right">Actual</span>
+        {!s.noBudget && <span className="text-right">{s.income ? "Diff" : "Left"}</span>}
       </div>
       <ul className="divide-y divide-line">
         {list.map((r) => (
           <Line key={r.id} r={r} income={s.income} year={year} month={month} includeHaircut={includeHaircut}
-            excluded={excluded(r)} sections={sections} current={s.type} editing={editing} />
+            excluded={excluded(r)} sections={sections} current={s.type} editing={editing} noBudget={!!s.noBudget} />
         ))}
       </ul>
       {list.length === 0 && !editing && <p className="px-4 py-3 text-sm text-muted sm:px-5">Nothing here yet. Use Edit to add a row.</p>}
-      {editing && <AddRow type={s.type} year={year} month={month} locked={false} />}
+      {editing && <AddRow type={s.type} year={year} month={month} locked={false} noBudget={!!s.noBudget} />}
     </section>
   );
 }
@@ -117,9 +121,9 @@ function MoneyInput({ value, onSave, label, disabled }: { value: number; onSave:
   );
 }
 
-function Line({ r, income, year, month, includeHaircut, excluded, sections, current, editing }: {
+function Line({ r, income, year, month, includeHaircut, excluded, sections, current, editing, noBudget }: {
   r: Row; income: boolean; year: number; month: number; includeHaircut: boolean; excluded: boolean;
-  sections: Section[]; current: string; editing: boolean;
+  sections: Section[]; current: string; editing: boolean; noBudget: boolean;
 }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState("");
@@ -148,7 +152,7 @@ function Line({ r, income, year, month, includeHaircut, excluded, sections, curr
 
   return (
     <li className={clsx("px-4 py-2.5 sm:px-5", pending && "opacity-60", excluded && "bg-raised/30")}>
-      <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_7rem_7rem_6rem]">
+      <div className={clsx("grid grid-cols-1 items-center gap-2", noBudget ? "sm:grid-cols-[1fr_7rem]" : "sm:grid-cols-[1fr_7rem_7rem_6rem]")}>
         <div className="min-w-0">
           {editing ? (
             <>
@@ -194,11 +198,13 @@ function Line({ r, income, year, month, includeHaircut, excluded, sections, curr
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-2 sm:contents">
-          <label className="text-[11px] uppercase text-muted sm:contents">
-            <span className="sm:hidden">Budget</span>
-            <MoneyInput label={`Budget for ${r.name}`} value={r.budgeted} onSave={(v) => run(() => setBudget(r.id, year, month, num(v)))} />
-          </label>
+        <div className={clsx("grid gap-2 sm:contents", noBudget ? "grid-cols-1" : "grid-cols-3")}>
+          {!noBudget && (
+            <label className="text-[11px] uppercase text-muted sm:contents">
+              <span className="sm:hidden">Budget</span>
+              <MoneyInput label={`Budget for ${r.name}`} value={r.budgeted} onSave={(v) => run(() => setBudget(r.id, year, month, num(v)))} />
+            </label>
+          )}
           <label className="text-[11px] uppercase text-muted sm:contents">
             <span className="sm:hidden">Actual</span>
             {locked ? (
@@ -209,12 +215,14 @@ function Line({ r, income, year, month, includeHaircut, excluded, sections, curr
               <MoneyInput label={`Actual for ${r.name}`} value={r.actual} onSave={(v) => run(() => setCategoryActual(r.id, year, month, v))} />
             )}
           </label>
+          {!noBudget && (
           <div className="text-[11px] uppercase text-muted sm:contents">
             <span className="sm:hidden">{income ? "Diff" : "Left"}</span>
             <p className={clsx("num py-1.5 text-right text-sm normal-case", bad ? "text-bad" : income && diff >= 0 && r.actual > 0 ? "text-good" : "text-ink")}>
               {r.budgeted || r.actual ? (diff < 0 ? "−" : income && diff > 0 ? "+" : "") + "€" + fmt(Math.abs(diff)) : "—"}
             </p>
           </div>
+          )}
         </div>
       </div>
       {locked && (
@@ -231,7 +239,7 @@ function Line({ r, income, year, month, includeHaircut, excluded, sections, curr
   );
 }
 
-function AddRow({ type, year, month, locked }: { type: string; year: number; month: number; locked: boolean }) {
+function AddRow({ type, year, month, locked, noBudget = false }: { type: string; year: number; month: number; locked: boolean; noBudget?: boolean }) {
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ name: "", budget: "", actual: "" });
   const [err, setErr] = useState("");
@@ -252,7 +260,7 @@ function AddRow({ type, year, month, locked }: { type: string; year: number; mon
         setErr("");
         start(async () => {
           try {
-            await addCategoryRow({ name: f.name, type, year, month, budget: f.budget, actual: locked ? "" : f.actual });
+            await addCategoryRow({ name: f.name, type, year, month, budget: noBudget ? "" : f.budget, actual: locked ? "" : f.actual });
             setF({ name: "", budget: "", actual: "" });
             setOpen(false);
           } catch (e) {
@@ -262,7 +270,7 @@ function AddRow({ type, year, month, locked }: { type: string; year: number; mon
       }}
     >
       <input autoFocus aria-label="New row name" className="input col-span-3 !py-1.5 text-sm sm:col-span-1" placeholder="Name, e.g. Netflix" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} />
-      <input aria-label="New row budget" inputMode="decimal" className="input num !px-2 !py-1.5 text-right text-sm" placeholder="Budget" value={f.budget} onChange={(e) => setF({ ...f, budget: clean(e.target.value) })} />
+      {!noBudget && <input aria-label="New row budget" inputMode="decimal" className="input num !px-2 !py-1.5 text-right text-sm" placeholder="Budget" value={f.budget} onChange={(e) => setF({ ...f, budget: clean(e.target.value) })} />}
       <input aria-label="New row actual" inputMode="decimal" disabled={locked} className="input num !px-2 !py-1.5 text-right text-sm disabled:opacity-50" placeholder="Actual" value={f.actual} onChange={(e) => setF({ ...f, actual: clean(e.target.value) })} />
       <div className="flex gap-1">
         <button className="btn-primary !px-3 !py-1.5" disabled={pending} aria-label="Add row"><Check size={16} /></button>
