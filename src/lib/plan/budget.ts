@@ -22,20 +22,25 @@ export function groupOf(type: string, name: string): Group {
   return "wants";
 }
 
-/** The sections used everywhere in the app (same names and colours as v0.1). */
+/**
+ * The six sections used everywhere in the app. `type` is the category type new
+ * rows get; `types` lists every category type shown in the section.
+ */
 export const SECTIONS = [
-  { type: "income_salary", label: "Income", color: "#10B981", income: true },
-  { type: "income_other", label: "Other Income", color: "#14B8A6", income: true },
-  { type: "income_haircut", label: "Haircut Business", color: "#8B5CF6", income: true },
-  { type: "fixed", label: "Fixed Expenses", color: "#64748B", income: false },
-  { type: "subscription", label: "Subscriptions", color: "#D946EF", income: false },
-  { type: "family_giving", label: "Family & Giving", color: "#F59E0B", income: false },
-  { type: "debt", label: "Debt Repayment", color: "#F43F5E", income: false },
-  { type: "variable", label: "Variable Expenses", color: "#FB923C", income: false },
+  { type: "income_other", types: ["income_salary", "income_haircut", "income_other"], label: "Income", color: "#10B981", income: true },
+  { type: "fixed", types: ["fixed"], label: "Fixed Expenses", color: "#64748B", income: false },
+  { type: "subscription", types: ["subscription"], label: "Subscriptions", color: "#D946EF", income: false },
+  { type: "family_giving", types: ["family_giving"], label: "Family & Giving", color: "#F59E0B", income: false },
+  { type: "debt", types: ["debt"], label: "Debt Repayment", color: "#F43F5E", income: false },
+  { type: "variable", types: ["variable"], label: "Miscellaneous", color: "#FB923C", income: false },
 ] as const;
 
 export const EXPENSE_SECTIONS = SECTIONS.filter((s) => !s.income);
-export const sectionOf = (type: string) => SECTIONS.find((s) => s.type === type);
+export const sectionOf = (type: string) => SECTIONS.find((s) => (s.types as readonly string[]).includes(type));
+
+/** iCut costs (e.g. "Haircut Business Expenses"), left out with haircut income when that's switched off. */
+export const isHaircutExpense = (type: string, name: string) =>
+  !type.startsWith("income") && /haircut business|icut/i.test(name);
 
 export const PLAN_INCOME = { salary: 1200, haircuts: 500 };
 export const PLAN_TOTAL_INCOME = PLAN_INCOME.salary + PLAN_INCOME.haircuts;

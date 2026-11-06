@@ -8,7 +8,7 @@ import { addCategory, setCategoryArchived } from "@/app/actions";
 type Cat = { id: string; name: string; type: string; color: string; isArchived: boolean };
 
 const TYPES = [
-  ["variable", "Spending (varies)"], ["fixed", "Fixed bill"], ["subscription", "Subscription"], ["debt", "Debt"],
+  ["variable", "Miscellaneous"], ["fixed", "Fixed bill"], ["subscription", "Subscription"], ["debt", "Debt"],
   ["family_giving", "Family"], ["income_salary", "Income: salary"], ["income_haircut", "Income: haircuts"], ["income_other", "Income: other"],
 ] as const;
 const typeLabel = (t: string) => TYPES.find(([k]) => k === t)?.[1] ?? t;

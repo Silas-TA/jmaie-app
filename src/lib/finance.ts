@@ -1,6 +1,11 @@
-import { q, one } from "./db";
+import { q, one, getSetting } from "./db";
 import { isoDate, monthRange } from "./dates";
-import { groupOf, type Group } from "./plan/budget";
+import { groupOf, isHaircutExpense, type Group } from "./plan/budget";
+
+/** Whether haircut income (and iCut costs) count in the main totals. On by default. */
+export async function getIncludeHaircut(): Promise<boolean> {
+  return (await getSetting("include_haircut")) !== "false";
+}
 
 export type Category = {
   id: string;
@@ -105,10 +110,12 @@ export type MonthSummary = {
   /** Budget vs actual per category type (the v0.1 sections). */
   byType: Record<string, { budgeted: number; actual: number }>;
   budgetedSpend: number;
+  includeHaircut: boolean;
 };
 
 export async function getMonthSummary(year: number, month: number): Promise<MonthSummary> {
-  const rows = await getBudget(year, month);
+  const [allRows, includeHaircut] = await Promise.all([getBudget(year, month), getIncludeHaircut()]);
+  const rows = includeHaircut ? allRows : allRows.filter((r) => r.type !== "income_haircut" && !isHaircutExpense(r.type, r.name));
   const [start, end] = monthRange(year, month);
   const uncategorised = await one<{ income: string | null; expense: string | null }>(
     `SELECT SUM(CASE WHEN direction='income' THEN amount END) AS income,
@@ -144,7 +151,7 @@ export async function getMonthSummary(year: number, month: number): Promise<Mont
   return {
     income, salary, haircut, otherIncome, spent, saved, left,
     savingsRate: income > 0 ? (saved + Math.max(0, left)) / income : 0,
-    byGroup, byType, budgetedSpend,
+    byGroup, byType, budgetedSpend, includeHaircut,
   };
 }
 
@@ -152,13 +159,16 @@ export async function getMonthSummary(year: number, month: number): Promise<Mont
 export async function getTrend(year: number, month: number, n = 6) {
   const startD = new Date(Date.UTC(year, month - n, 1));
   const [, end] = monthRange(year, month);
+  const includeHaircut = await getIncludeHaircut();
   const rows = await q<{ ym: string; direction: string; savings: boolean; total: string }>(
     `SELECT to_char(t.date, 'YYYY-MM') AS ym, t.direction::text AS direction,
             (COALESCE(c.name,'') ILIKE '%saving%') AS savings, SUM(t.amount) AS total
        FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
       WHERE t.date >= $1 AND t.date < $2
+        AND ($3::boolean OR (COALESCE(c.type::text,'') <> 'income_haircut'
+             AND NOT (COALESCE(c.type::text,'') NOT LIKE 'income%' AND COALESCE(c.name,'') ~* 'haircut business|icut')))
       GROUP BY 1, 2, 3`,
-    [startD.toISOString().slice(0, 10), end]
+    [startD.toISOString().slice(0, 10), end, includeHaircut]
   );
   const out: { ym: string; label: string; income: number; spent: number; saved: number }[] = [];
   for (let i = 0; i < n; i++) {

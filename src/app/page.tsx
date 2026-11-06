@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, Dumbbell, Salad, Target, Scale } from "lucide-react";
 import { PageHeader, Card, Stat, Bar, MonthNav } from "@/components/ui";
 import QuickAdd from "@/components/QuickAdd";
+import HaircutToggle from "@/components/HaircutToggle";
 import { MoneyTrend } from "@/components/Charts";
 import { getCategories, getFrequentCategoryIds, getGoals, getMonthSummary, getTrend } from "@/lib/finance";
 import { getMeals, getSets, getWeights, rolling } from "@/lib/health";
@@ -40,11 +41,11 @@ export default async function Overview({ searchParams }: { searchParams: { year?
       <PageHeader
         eyebrow={new Date(today + "T12:00:00Z").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" })}
         title="Overview"
-        right={<MonthNav base="/" year={year} month={month} />}
+        right={<div className="flex flex-wrap items-center gap-2"><HaircutToggle on={s.includeHaircut} /><MonthNav base="/" year={year} month={month} /></div>}
       />
 
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Income" value={eur(s.income)} tone="good" sub={`Salary ${eur(s.salary, 0)} · iCut ${eur(s.haircut, 0)}`} />
+        <Stat label="Income" value={eur(s.income)} tone="good" sub={s.includeHaircut ? `Salary ${eur(s.salary, 0)} · iCut ${eur(s.haircut, 0)}` : `Salary ${eur(s.salary, 0)} · haircuts left out`} />
         <Stat label="Spent" value={eur(s.spent)} sub={s.budgetedSpend ? `${Math.round((s.spent / s.budgetedSpend) * 100)}% of budget` : "No budget set yet"} />
         <Stat label="Saved" value={eur(s.saved)} tone="accent" sub={`Plan: ${eur(480, 0)} / month`} />
         {isCurrent ? (

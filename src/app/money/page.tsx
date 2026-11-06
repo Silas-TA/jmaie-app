@@ -33,7 +33,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: { year
       <PageHeader eyebrow="Money" title="Transactions" right={<MonthNav base="/money" year={year} month={month} />} />
       <Tabs items={MONEY_TABS} active="/money" />
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Income" value={eur(s.income)} tone="good" />
+        <Stat label="Income" value={eur(s.income)} tone="good" sub={s.includeHaircut ? undefined : "Haircut income left out"} />
         <Stat label="Spent" value={eur(s.spent)} />
         <Stat label="Saved" value={eur(s.saved)} tone="accent" />
         <Stat label="Left over" value={eur(s.left)} tone={s.left < 0 ? "bad" : undefined} />
@@ -51,7 +51,7 @@ export default async function MoneyPage({ searchParams }: { searchParams: { year
             ))}
           </div>
           {view === "categories" ? (
-            <BudgetActual rows={budget.filter((r) => !r.isArchived)} year={year} month={month} />
+            <BudgetActual rows={budget.filter((r) => !r.isArchived)} year={year} month={month} includeHaircut={s.includeHaircut} />
           ) : (
             <TxList txs={txs} categories={cats} />
           )}

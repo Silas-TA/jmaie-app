@@ -5,7 +5,8 @@ import { useEffect, useState, useTransition } from "react";
 import clsx from "clsx";
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { addCategoryRow, deleteCategoryRow, renameCategory, setBudget, setCategoryActual } from "@/app/actions";
-import { SECTIONS } from "@/lib/plan/budget";
+import { SECTIONS, isHaircutExpense } from "@/lib/plan/budget";
+import HaircutToggle from "./HaircutToggle";
 
 type Row = { id: string; name: string; type: string; color: string; budgeted: number; actual: number; notes: string | null };
 
@@ -14,7 +15,8 @@ const num = (s: string) => Number(s.replace(",", ".")) || 0;
 const clean = (s: string) => s.replace(/[^0-9.,]/g, "");
 
 /** Budget vs actual, one card per section, like v0.1: type straight into Budget or Actual. */
-export default function BudgetActual({ rows, year, month }: { rows: Row[]; year: number; month: number }) {
+export default function BudgetActual({ rows, year, month, includeHaircut }: { rows: Row[]; year: number; month: number; includeHaircut: boolean }) {
+  const excluded = (r: Row) => !includeHaircut && (r.type === "income_haircut" || isHaircutExpense(r.type, r.name));
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
@@ -22,9 +24,13 @@ export default function BudgetActual({ rows, year, month }: { rows: Row[]; year:
         Click a name to rename it. Use <b className="text-ink">+ Add row</b> for something new.
       </p>
       {SECTIONS.map((s) => {
-        const list = rows.filter((r) => r.type === s.type).sort((a, b) => a.name.localeCompare(b.name));
-        const bud = list.reduce((a, r) => a + r.budgeted, 0);
-        const act = list.reduce((a, r) => a + r.actual, 0);
+        const order = (t: string) => ["income_salary", "income_haircut", "income_other"].indexOf(t);
+        const list = rows
+          .filter((r) => (s.types as readonly string[]).includes(r.type))
+          .sort((a, b) => order(a.type) - order(b.type) || a.name.localeCompare(b.name));
+        const counted = list.filter((r) => !excluded(r));
+        const bud = counted.reduce((a, r) => a + r.budgeted, 0);
+        const act = counted.reduce((a, r) => a + r.actual, 0);
         return (
           <section key={s.type} className="card overflow-hidden">
             <div className="flex items-center gap-2 border-b border-line px-4 py-3 sm:px-5">
@@ -38,9 +44,9 @@ export default function BudgetActual({ rows, year, month }: { rows: Row[]; year:
               <span>Name</span><span className="text-right">Budget</span><span className="text-right">Actual</span><span className="text-right">{s.income ? "Diff" : "Left"}</span><span />
             </div>
             <ul className="divide-y divide-line">
-              {list.map((r) => <Line key={r.id} r={r} income={s.income} year={year} month={month} />)}
+              {list.map((r) => <Line key={r.id} r={r} income={s.income} year={year} month={month} includeHaircut={includeHaircut} excluded={excluded(r)} />)}
             </ul>
-            <AddRow type={s.type} year={year} month={month} locked={s.type === "income_haircut"} />
+            <AddRow type={s.type} year={year} month={month} locked={false} />
           </section>
         );
       })}
@@ -70,7 +76,7 @@ function MoneyInput({ value, onSave, label, disabled }: { value: number; onSave:
   );
 }
 
-function Line({ r, income, year, month }: { r: Row; income: boolean; year: number; month: number }) {
+function Line({ r, income, year, month, includeHaircut, excluded }: { r: Row; income: boolean; year: number; month: number; includeHaircut: boolean; excluded: boolean }) {
   const [pending, start] = useTransition();
   const [err, setErr] = useState("");
   const [editing, setEditing] = useState(false);
@@ -85,7 +91,7 @@ function Line({ r, income, year, month }: { r: Row; income: boolean; year: numbe
     });
 
   return (
-    <li className={clsx("px-4 py-2.5 sm:px-5", pending && "opacity-60")}>
+    <li className={clsx("px-4 py-2.5 sm:px-5", pending && "opacity-60", excluded && "bg-raised/30")}>
       <div className="grid grid-cols-[1fr_auto] items-center gap-2 sm:grid-cols-[1fr_7rem_7rem_6rem_2rem]">
         {/* Name */}
         <div className="min-w-0">
@@ -130,7 +136,15 @@ function Line({ r, income, year, month }: { r: Row; income: boolean; year: numbe
         </div>
         <DeleteBtn r={r} year={year} month={month} run={run} className="hidden sm:flex" />
       </div>
-      {locked && <p className="mt-1 text-xs text-muted">Actual is the total of paid haircuts on the iCut page.</p>}
+      {locked && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <HaircutToggle on={includeHaircut} compact />
+          <p className="text-xs text-muted">
+            {includeHaircut ? "Actual is the total of paid haircuts on the iCut page." : "Left out of your totals, along with iCut costs."}
+          </p>
+        </div>
+      )}
+      {!locked && excluded && <p className="mt-1 text-xs text-muted">Not counted while haircut income is switched off.</p>}
       {err && <p className="mt-1 text-xs text-bad">{err}</p>}
     </li>
   );

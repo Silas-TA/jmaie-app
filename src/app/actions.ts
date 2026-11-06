@@ -136,6 +136,12 @@ export async function setCategoryActual(categoryId: string, year: number, month:
   refreshAll();
 }
 
+/** Turns haircut income (and iCut costs) on or off in the main totals. */
+export async function setIncludeHaircut(on: boolean) {
+  await setSetting("include_haircut", on ? "true" : "false");
+  refreshAll();
+}
+
 export async function renameCategory(id: string, name: string) {
   const clean = name.trim().slice(0, 60);
   if (!clean) throw new Error("Name can't be empty");

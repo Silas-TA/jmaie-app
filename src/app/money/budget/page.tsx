@@ -2,18 +2,19 @@ import { Sparkles, Copy } from "lucide-react";
 import { PageHeader, MonthNav, Tabs, MONEY_TABS, Card } from "@/components/ui";
 import BudgetActual from "@/components/BudgetActual";
 import ActionButton from "@/components/ActionButton";
-import { getBudget } from "@/lib/finance";
+import { getBudget, getIncludeHaircut } from "@/lib/finance";
 import { eur, monthLabel, parseYM } from "@/lib/dates";
-import { EXPENSE_SECTIONS, PLAN_LINES, PLAN_TOTAL_INCOME, RULES } from "@/lib/plan/budget";
+import { EXPENSE_SECTIONS, PLAN_LINES, PLAN_TOTAL_INCOME, RULES, isHaircutExpense } from "@/lib/plan/budget";
 import { applySuggestedPlan, copyPreviousBudget } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
 export default async function BudgetPage({ searchParams }: { searchParams: { year?: string; month?: string } }) {
   const { year, month } = parseYM(searchParams);
-  const rows = await getBudget(year, month);
-  const incomeRows = rows.filter((r) => r.type.startsWith("income"));
-  const totalBudgeted = rows.filter((r) => !r.type.startsWith("income") && !r.isArchived).reduce((a, r) => a + r.budgeted, 0);
+  const [rows, includeHaircut] = await Promise.all([getBudget(year, month), getIncludeHaircut()]);
+  const counts = (r: { type: string; name: string }) => includeHaircut || (r.type !== "income_haircut" && !isHaircutExpense(r.type, r.name));
+  const incomeRows = rows.filter((r) => r.type.startsWith("income") && counts(r));
+  const totalBudgeted = rows.filter((r) => !r.type.startsWith("income") && !r.isArchived && counts(r)).reduce((a, r) => a + r.budgeted, 0);
   const incomeBudget = incomeRows.reduce((a, r) => a + r.budgeted, 0) || PLAN_TOTAL_INCOME;
   const unassigned = incomeBudget - totalBudgeted;
 
@@ -90,7 +91,7 @@ export default async function BudgetPage({ searchParams }: { searchParams: { yea
           )}
         </p>
       </div>
-      <BudgetActual rows={rows.filter((r) => !r.isArchived)} year={year} month={month} />
+      <BudgetActual rows={rows.filter((r) => !r.isArchived)} year={year} month={month} includeHaircut={includeHaircut} />
     </>
   );
 }
